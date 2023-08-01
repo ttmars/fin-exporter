@@ -92,17 +92,75 @@ func Run() {
 
 		// Use the handle as a packet source to process all packets
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+		//for packet := range packetSource.Packets() {
+		//	ipLayer := packet.Layer(layers.LayerTypeIPv4)
+		//	if ipLayer == nil {
+		//		continue
+		//	}
+		//	ip, _ := ipLayer.(*layers.IPv4)
+		//	tcpLayer := packet.Layer(layers.LayerTypeTCP)
+		//	if tcpLayer == nil {
+		//		continue
+		//	}
+		//	tcp, _ := tcpLayer.(*layers.TCP)
+		//
+		//	var data1 = Msg{
+		//		Timestamp: packet.Metadata().Timestamp,
+		//		Src:       fmt.Sprintf("%v:%v", ip.SrcIP.String(), tcp.SrcPort.String()),
+		//		SrcIP:     ip.SrcIP.String(),
+		//		Dst:       fmt.Sprintf("%v:%v", ip.DstIP.String(), tcp.DstPort.String()),
+		//		DstIP:     ip.DstIP.String(),
+		//		FIN:       tcp.FIN,
+		//		RST:       tcp.RST,
+		//		Seq:       tcp.Seq,
+		//		Ack:       tcp.Ack,
+		//	}
+		//
+		//	if data1.RST {
+		//		MsgThreadQueueSize.WithLabelValues(data1.SrcIP, data1.DstIP, "RST").Inc()
+		//	}
+		//	if data1.FIN {
+		//		mu.Lock()
+		//		m[data1.Src+data1.Dst] = data1
+		//
+		//		data2, ok := m[data1.Dst+data1.Src]
+		//		if ok {
+		//			if data1.Seq+1 == data2.Ack {
+		//				// data1 is first FIN
+		//				MsgThreadQueueSize.WithLabelValues(data1.SrcIP, data1.DstIP, "FIN").Inc()
+		//				delete(m, data1.Src+data1.Dst)
+		//				delete(m, data1.Dst+data1.Src)
+		//				//fmt.Printf("%+v\n", data1)
+		//			}
+		//			if data2.Seq+1 == data1.Ack {
+		//				// data2 is first FIN
+		//				MsgThreadQueueSize.WithLabelValues(data2.SrcIP, data2.DstIP, "FIN").Inc()
+		//				delete(m, data2.Src+data2.Dst)
+		//				delete(m, data2.Dst+data2.Src)
+		//				//fmt.Printf("%+v\n", data2)
+		//			}
+		//		}
+		//		mu.Unlock()
+		//	}
+		//}
+
+		// 复用优化
+		var ip layers.IPv4
+		var tcp layers.TCP
+		var ethLayer layers.Ethernet
 		for packet := range packetSource.Packets() {
-			ipLayer := packet.Layer(layers.LayerTypeIPv4)
-			if ipLayer == nil {
+			parser := gopacket.NewDecodingLayerParser(
+				layers.LayerTypeEthernet,
+				&ethLayer,
+				&ip,
+				&tcp,
+			)
+			foundLayerTypes := []gopacket.LayerType{}
+			parser.DecodeLayers(packet.Data(), &foundLayerTypes)
+			if len(foundLayerTypes) != 3 {
+				log.Println("解析错误，len(foundLayerTypes):", len(foundLayerTypes))
 				continue
 			}
-			ip, _ := ipLayer.(*layers.IPv4)
-			tcpLayer := packet.Layer(layers.LayerTypeTCP)
-			if tcpLayer == nil {
-				continue
-			}
-			tcp, _ := tcpLayer.(*layers.TCP)
 
 			var data1 = Msg{
 				Timestamp: packet.Metadata().Timestamp,
@@ -130,14 +188,12 @@ func Run() {
 						MsgThreadQueueSize.WithLabelValues(data1.SrcIP, data1.DstIP, "FIN").Inc()
 						delete(m, data1.Src+data1.Dst)
 						delete(m, data1.Dst+data1.Src)
-						//fmt.Printf("%+v\n", data1)
 					}
 					if data2.Seq+1 == data1.Ack {
 						// data2 is first FIN
 						MsgThreadQueueSize.WithLabelValues(data2.SrcIP, data2.DstIP, "FIN").Inc()
 						delete(m, data2.Src+data2.Dst)
 						delete(m, data2.Dst+data2.Src)
-						//fmt.Printf("%+v\n", data2)
 					}
 				}
 				mu.Unlock()
@@ -165,7 +221,7 @@ func FindDevice() pcap.Interface {
 	}
 	for _, device := range devices {
 		for _, address := range device.Addresses {
-			if address.IP.String() == "172.20.10.2" {
+			if address.IP.String() == "172.16.25.50" {
 				return device
 			}
 		}
