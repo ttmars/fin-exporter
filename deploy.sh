@@ -4,8 +4,8 @@ rm -rf fin-exporter
 mkdir fin-exporter
 cd fin-exporter
 yum install -y libpcap-devel
-wget http://104.156.238.243:2023/fin-exporter.tar.gz
+wget http://34.87.43.172:2023/fin-exporter.tar.gz
 tar -zxvf fin-exporter.tar.gz
 nohup ./fin-exporter >log 2>&1 &
-firewall-cmd --zone=public --add-port=2023-$port/tcp --permanent
+firewall-cmd --zone=public --add-port=50055/tcp --permanent
 firewall-cmd --reload
