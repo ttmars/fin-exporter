@@ -39,6 +39,7 @@ func main() {
 }
 
 func Run() {
+	log.Println("version:1.0.0")
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	var port string
 	var device string
