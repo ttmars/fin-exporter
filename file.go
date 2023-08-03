@@ -1,7 +1,14 @@
 package main
 
-import "gitee.com/ttmasx/cob/proxy"
+import (
+	"flag"
+	"fmt"
+	"gitee.com/ttmasx/cob/proxy"
+)
 
 func main() {
-	proxy.DProxy.CreateFileServerByGin("/file", "", "2023", false)
+	var port int
+	flag.IntVar(&port, "-p", 2023, "端口")
+	flag.Parse()
+	proxy.DProxy.CreateFileServerByGin("/file", "", fmt.Sprintf("%v", port), false)
 }
